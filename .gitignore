@@ -1,0 +1,17 @@
+# Build output (CLion / CMake)
+cmake-build-*/
+build/
+
+# IDE settings
+.idea/
+
+# Compiled files and binaries
+*.exe
+*.dll
+*.a
+*.obj
+*.o
+
+# Secrets: WireGuard keys and configs must never be committed
+*.key
+*.conf

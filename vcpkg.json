@@ -1,0 +1,7 @@
+{
+  "name": "wireless-telemetry",
+  "version": "0.1.0",
+  "dependencies": [
+    "asio"
+  ]
+}
