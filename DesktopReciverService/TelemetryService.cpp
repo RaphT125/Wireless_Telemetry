@@ -45,8 +45,9 @@ void TelemetryService::initialization(std::uint16_t port) {
     // 2. Then the UDP receiver. It listens on every address, including 10.8.0.1.
     receiver = std::make_unique<Receiver>(port, [this](const std::uint8_t* data, std::size_t size,
                                                        const asio::ip::udp::endpoint& from) {
-        packetHandler.handlePacket(data, size, from);
-        candeserializer.deserializer(data);
+        // Sender's tunnel IP as a number (e.g. 10.8.0.3), used to keep per-device state.
+        std::uint32_t ip = from.address().is_v4() ? from.address().to_v4().to_uint() : 0;
+        packetHandler.handlePacket(data, size, ip);
     });
     receiver->start();
     started_ = true;

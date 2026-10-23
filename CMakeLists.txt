@@ -22,9 +22,13 @@ add_library(telemetry_core STATIC
         DesktopReciverService/PacketHandler.h
         DesktopReciverService/CANDeserializer.cpp
         DesktopReciverService/CANDeserializer.h
+        DesktopReciverService/ProcessedCanData.h
         DesktopReciverService/CANMap.h
         DesktopReciverService/Tunneling.cpp
         DesktopReciverService/Tunneling.h
+        DesktopReciverService/iParser.h
+        DesktopReciverService/JsonParser.cpp
+        DesktopReciverService/JsonParser.h
 )
 target_include_directories(telemetry_core PUBLIC DesktopReciverService)
 target_link_libraries(telemetry_core PUBLIC asio::asio)
