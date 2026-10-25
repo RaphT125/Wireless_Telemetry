@@ -9,6 +9,8 @@
 #include "Tunneling.h"
 #include "PacketHandler.h"
 #include "CANDeserializer.h"
+#include "TelemtryRepsoitory.h"
+#include "GrafanaLiveStream.h"
 #include <windows.h>
 #include <atomic>
 #include <cstdint>
@@ -34,7 +36,9 @@ private:
     // Members are destroyed in reverse order, so `tunnel` (declared first) is torn down
     // last - after the receiver that uses it has stopped.
     Tunneling tunnel;
-    PacketHandler packetHandler;          // must be declared before `receiver`
+    PacketHandler packetHandler;
+    std::unique_ptr<TelemtryRepsoitory>telemtryRepsoitory;
+    std::unique_ptr<GrafanaLiveStream> grafanaLiveStream;
     CANDeserializer candeserializer;
     std::unique_ptr<Receiver> receiver;
     std::atomic<bool> started_{false};

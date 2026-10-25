@@ -182,6 +182,7 @@ namespace {
 
     }
 
+
     void Tunneling::loadOrCreateKey(const wstring& keyFile) {
         filesystem::path path(keyFile);
 
@@ -328,7 +329,7 @@ namespace {
     Tunneling::Peer Tunneling::askForPeer(int nUser) {
         Peer peer;
     while (true ) {
-        std::cout<< "Please enter your device name";
+        std::cout<< "Please enter your device name: ";
         std::string name;
         if (!getline(cin,peer.name)) {
             throw::std::runtime_error("No input available");
@@ -340,7 +341,7 @@ namespace {
     }
         while (true ) {
             std::string key;
-            std::cout<< "Please enter your device's public key";
+            std::cout<< "Please enter your device's public key: ";
             if (getline(cin,key)) {
                 throw::std::runtime_error("No input available");
             }

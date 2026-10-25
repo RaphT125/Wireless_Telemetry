@@ -6,8 +6,15 @@
 #include <cstdio>
 #include <cstring>
 #include "CANDeserializer.h"
+#include "TelemtryRepsoitory.h"
+#include "GrafanaLiveStream.h"
 
-    void PacketHandler::handlePacket(const std::uint8_t* data, std::size_t size, uint32_t ip = 0) {
+
+    void PacketHandler::handlePacket(const std::uint8_t* data, std::size_t size, uint32_t ip) {
+        if (size < 1) {
+            //throw log: empty packet
+            return;
+        }
         uint8_t header;
         memcpy(&header, data, sizeof(uint8_t));
         if (header == HANDSHAKE) {
@@ -17,7 +24,7 @@
         }
     }
 
-    void PacketHandler::dataPacketHandler(const std::uint8_t* data, std::size_t size, uint64_t ip) {
+    void PacketHandler::dataPacketHandler(const std::uint8_t* data, std::size_t size, uint32_t ip) {
         // Header is 19 bytes: header(1) bootId(4) baseTimeMs(8) sequence(4) frameCount(1) littleEndian(1)
         if (size < 19) {
             //throw log: packet too short to be valid
@@ -49,7 +56,7 @@
             canMessage.littleEndian = littleEndian;
             canMessages.push_back(canMessage);
         }
-        deserializePacket(canMessages, ip);
+        deserializePacket(canMessages, ip, baseTimeMs);
     }
 
 
@@ -91,10 +98,30 @@
         link.baseTimeMs   = baseTimeMs;
     }
 
-    void PacketHandler::deserializePacket(const std::vector<body> data, uint32_t ip) {
-            std::vector<ProcessedCanData> canMessages = {};
+    void PacketHandler::deserializePacket(const std::vector<body>& data, uint32_t ip, std::uint64_t baseTimeMs) {
+            std::vector<datapoint> datapoints;
+            const std::string device = asio::ip::address_v4(ip).to_string();   // e.g. "10.8.0.3"
+            linkState& link = m_lastSeen[ip];
             for (auto& canMessage : data) {
                std::vector<ProcessedCanData> temp = CANDeserializer::deserializer(&canMessage);
-               canMessages.insert(canMessages.end(),temp.begin(),temp.end());
+                for (auto t : temp) {
+                    datapoint point;
+                    point.device = device;
+                    point.timeMs = baseTimeMs + canMessage.timeOffsetMs;   // when this frame was sampled
+                    point.boot_id = link.lastBootId;
+                    point.procssedData = t;
+                    datapoints.push_back(point);
+                }
+            }
+            if (datapoints.empty()) return;
+            if (m_liveStream != nullptr) {   // live first: the dashboard wants it fastest
+                m_liveStream->grafanaLiveConnection(datapoints);
+            }
+            if (m_repository == nullptr) return;
+            try {
+                m_repository->saveDatapoint(datapoints);
+            } catch (const std::exception& e) {
+                // A database problem shouldn't stop the receiver.
+                std::printf("Could not save %zu datapoints: %s\n", datapoints.size(), e.what());
             }
     }

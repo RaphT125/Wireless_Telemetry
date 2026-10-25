@@ -7,12 +7,35 @@ if(DEFINED ENV{VCPKG_ROOT} AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
         CACHE STRING "vcpkg toolchain file")
 endif()
 
+# vcpkg: build compiled libraries (libpqxx, libpq) for MinGW, statically, to match the
+# -static .exe below. Without this vcpkg builds MSVC libraries that MinGW can't link.
+# Must be set before project(). Remove these lines if you ever switch to MSVC.
+if(CMAKE_HOST_WIN32 AND NOT DEFINED VCPKG_TARGET_TRIPLET)
+    set(VCPKG_TARGET_TRIPLET "x64-mingw-static" CACHE STRING "vcpkg target triplet")
+    set(VCPKG_HOST_TRIPLET   "x64-mingw-static" CACHE STRING "vcpkg host triplet")
+endif()
+
 project(Wireless_Telemetry CXX)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)   # libpqxx 8 needs C++20
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(asio CONFIG REQUIRED)
+find_package(libpqxx CONFIG REQUIRED)
+find_package(cpr CONFIG REQUIRED)
+
+# MinGW + static libpq: libpgcommon uses functions from libpgport, but vcpkg puts libpgport
+# BEFORE libpgcommon on the link line, and the MinGW linker only looks forward. Repeat both
+# at the very end of the link line so those functions are found.
+if(MINGW AND VCPKG_TARGET_TRIPLET MATCHES "static")
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        set(PG_LIB_DIR "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/lib")
+    else()
+        set(PG_LIB_DIR "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib")
+    endif()
+    set(CMAKE_CXX_STANDARD_LIBRARIES
+        "${PG_LIB_DIR}/libpgcommon.a ${PG_LIB_DIR}/libpgport.a -lws2_32 -lsecur32 ${CMAKE_CXX_STANDARD_LIBRARIES}")
+endif()
 
 # Core logic: UDP receiver + service wrapper.
 add_library(telemetry_core STATIC
@@ -26,12 +49,13 @@ add_library(telemetry_core STATIC
         DesktopReciverService/CANMap.h
         DesktopReciverService/Tunneling.cpp
         DesktopReciverService/Tunneling.h
-        DesktopReciverService/iParser.h
-        DesktopReciverService/JsonParser.cpp
-        DesktopReciverService/JsonParser.h
+        DesktopReciverService/TelemtryRepsoitory.cpp
+        DesktopReciverService/TelemtryRepsoitory.h
+        DesktopReciverService/GrafanaLiveStream.cpp
+        DesktopReciverService/GrafanaLiveStream.h
 )
 target_include_directories(telemetry_core PUBLIC DesktopReciverService)
-target_link_libraries(telemetry_core PUBLIC asio::asio)
+target_link_libraries(telemetry_core PUBLIC asio::asio libpqxx::pqxx cpr::cpr)
 target_compile_definitions(telemetry_core PUBLIC ASIO_STANDALONE)
 
 if(WIN32)

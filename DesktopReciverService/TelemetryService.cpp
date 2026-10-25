@@ -4,6 +4,7 @@
 
 #include "TelemetryService.h"
 #include <cstdio>
+#include <iostream>
 
 namespace {
 
@@ -16,7 +17,10 @@ const wchar_t* kKeyFile = L"C:\\ProgramData\\WirelessTelemetry\\desktop.key";
 //     { "laptop", Tunneling::keyFromBase64("<laptop public key>"), "10.8.0.2" },
 //     { "esp32",  Tunneling::keyFromBase64("<esp32 public key>"),  "10.8.0.3" },
 std::vector<Tunneling::Peer> tunnelPeers() {
+
     return {
+        {"laptop", Tunneling::keyFromBase64("wcEUhJzv/PI1ffanpHcVUIRcZwM7sO5NlboOeMB/ECA="), "10.8.0.2" },
+            {"laptop", Tunneling::keyFromBase64("3qa2491ATKHrdET0k9BNyQ5tfNIf1L+2rO1J+4w5RBc="), "10.8.0.3" }
     };
 }
 
@@ -42,7 +46,15 @@ void TelemetryService::initialization(std::uint16_t port) {
     std::printf("Desktop public key (give this to the laptop and ESP32): %s\n",
                 tunnel.publicKeyBase64().c_str());
 
-    // 2. Then the UDP receiver. It listens on every address, including 10.8.0.1.
+    //2. connect to locally hosted postgress database
+    telemtryRepsoitory = std::make_unique<TelemtryRepsoitory>();
+    telemtryRepsoitory->initializeSchema();
+    packetHandler.setRepository(telemtryRepsoitory.get());   // PacketHandler uses it, TelemetryService owns it
+
+    //3. live stream to Grafana
+    grafanaLiveStream = std::make_unique<GrafanaLiveStream>();
+    packetHandler.setLiveStream(grafanaLiveStream.get());
+
     receiver = std::make_unique<Receiver>(port, [this](const std::uint8_t* data, std::size_t size,
                                                        const asio::ip::udp::endpoint& from) {
         // Sender's tunnel IP as a number (e.g. 10.8.0.3), used to keep per-device state.

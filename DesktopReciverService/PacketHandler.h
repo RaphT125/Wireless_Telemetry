@@ -9,10 +9,14 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include <string>
 #include <unordered_map>
 #include <vector>
+
 #include "ProcessedCanData.h"
 
+class TelemtryRepsoitory;   // forward declaration: avoids an include loop (the repository includes this header)
+class GrafanaLiveStream;    // same reason
 
 class PacketHandler {
 public:
@@ -35,7 +39,9 @@ public:
     };
 
     struct datapoint {
-        std::uint16_t timeMs;
+        std::uint64_t timeMs;      // ms since 1970 (UTC)
+        std::string device;        // sender's tunnel IP as text, e.g. "10.8.0.3"
+        std::uint32_t boot_id;
         ProcessedCanData procssedData;
     };
 
@@ -50,12 +56,19 @@ public:
 
     void handlePacket(const std::uint8_t* data, std::size_t size, uint32_t ip);
 
+    // Where decoded datapoints get saved. Not owned: TelemetryService owns the repository.
+    void setRepository(TelemtryRepsoitory* repository) { m_repository = repository; }
+    // Where decoded datapoints get streamed live. Not owned: TelemetryService owns it.
+    void setLiveStream(GrafanaLiveStream* liveStream) { m_liveStream = liveStream; }
+
 private:
     void handshakeHandler(const std::uint8_t* data, std::size_t size, uint32_t ip);
-    void dataPacketHandler(const std::uint8_t* data, std::size_t size, uint64_t ip);
+    void dataPacketHandler(const std::uint8_t* data, std::size_t size, uint32_t ip);
     void lastSeenSequence(std::uint32_t ip, std::uint32_t bootId, std::uint64_t baseTimeMs, std::uint32_t sequence);
     std::unordered_map<std::uint32_t, linkState> m_lastSeen;
-    void deserializePacket(const std::vector<body> data, uint32_t ip);
+    void deserializePacket(const std::vector<body>& data, uint32_t ip, std::uint64_t baseTimeMs);
+    TelemtryRepsoitory* m_repository = nullptr;
+    GrafanaLiveStream* m_liveStream = nullptr;
 };
 
 

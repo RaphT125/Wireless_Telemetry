@@ -22,6 +22,7 @@ void Receiver::start() {
     asio::ip::udp::endpoint local(asio::ip::udp::v4(), port_);
     socket_.open(local.protocol());
     socket_.bind(local);                      // throws if the port is taken
+    socket_.set_option(asio::socket_base::receive_buffer_size(8 * 1024 * 1024));   // 8 MB: ride out stalls instead of dropping packets
 
     running_ = true;
     doReceive();
