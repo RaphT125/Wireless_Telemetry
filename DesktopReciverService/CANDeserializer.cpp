@@ -6,15 +6,15 @@
 #include <array>
     std::vector<ProcessedCanData> CANDeserializer::deserializer(const PacketHandler::body* data) {
         std::vector<ProcessedCanData> processedCanData = {};
-        uint64_t canID = checkEndian(data,4,0);
+        uint64_t canID = checkEndian(data,4,0,data->littleEndian);
         std::vector<ProcessedCanData> temp = deserializeProcessedCanData(data,canID);
         processedCanData.insert(processedCanData.end(),temp.begin(),temp.end());
         return processedCanData;
     }
 
-     std::uint64_t CANDeserializer::checkEndian(const PacketHandler::body* data, int byteLength, int offset) {
+     std::uint64_t CANDeserializer::checkEndian(const PacketHandler::body* data, int byteLength, int offset, bool littleEndian) {
         std::uint64_t byteData = 0;
-        if (data->littleEndian) {
+        if (littleEndian) {
             for (int i = offset+byteLength-1; i >= offset; i--) {
                 byteData = (byteData<<8) | data->rawFrame[i];
             }
@@ -40,7 +40,7 @@
         std::vector<ProcessedCanData> processedCanData = {};
         for (const CANMap::signal& entry : def.signals) {
             ProcessedCanData CANMessage;
-            std::uint64_t raw = checkEndian(data, entry.byteLength, 5 + entry.offset);
+            std::uint64_t raw = checkEndian(data, entry.byteLength, 5 + entry.offset, def.littleEndian);
             std::int64_t value = static_cast<std::int64_t>(raw);
             int bits = entry.byteLength * 8;
             if (entry.isSigned && bits < 64 && (raw & (1ULL << (bits - 1)))) {

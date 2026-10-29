@@ -12,6 +12,7 @@
 #include <cstdio>
 #include <cctype>
 #include <fstream>
+#include "CANMap.h"
 class GrafanaLiveStream {
 
     public:
@@ -32,8 +33,9 @@ class GrafanaLiveStream {
         return token;
     }();
         std::string m_url = "http://127.0.0.1:3000/api/live/push/telemetry";
-        cpr::Session m_session;   // one connection to Grafana, reused for every push (declared after m_token/m_url)
-    };
+        cpr::Session m_session;
+        std::map<std::string, std::uint64_t> m_lastGpsMs;
+};
 
 
 #endif //WIRELESS_TELEMETRY_GRAFANALIVESTREAM_H

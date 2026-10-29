@@ -16,7 +16,7 @@ public:
     using ProcessedCanData = ::ProcessedCanData;
     static std::vector<ProcessedCanData> deserializer(const PacketHandler::body* data);
 private:
-    static std::uint64_t checkEndian(const PacketHandler::body* data, int byteLength, int offset);
+    static std::uint64_t checkEndian(const PacketHandler::body* data, int byteLength, int offset, bool littleEndian);
     static std::vector<ProcessedCanData> deserializeProcessedCanData(const PacketHandler::body* data, uint64_t canID);
 
 };

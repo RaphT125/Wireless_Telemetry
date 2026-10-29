@@ -15,3 +15,10 @@ build/
 # Secrets: WireGuard keys and configs must never be committed
 *.key
 *.conf
+
+# ESP-IDF (ESPTransmitter): generated files; keep sdkconfig itself
+sdkconfig.old
+managed_components/
+
+# Wi-Fi credentials (SSID / password): never commit
+wifi_config.h

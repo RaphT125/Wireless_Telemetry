@@ -20,7 +20,9 @@ std::vector<Tunneling::Peer> tunnelPeers() {
 
     return {
         {"laptop", Tunneling::keyFromBase64("wcEUhJzv/PI1ffanpHcVUIRcZwM7sO5NlboOeMB/ECA="), "10.8.0.2" },
-            {"laptop", Tunneling::keyFromBase64("3qa2491ATKHrdET0k9BNyQ5tfNIf1L+2rO1J+4w5RBc="), "10.8.0.3" }
+        {"laptop", Tunneling::keyFromBase64("3qa2491ATKHrdET0k9BNyQ5tfNIf1L+2rO1J+4w5RBc="), "10.8.0.3" },
+        {"phone", Tunneling::keyFromBase64("GC8ucrMpooc8/TazDN/X7wTOiUI9xk9lMlMI291YnDQ="), "10.8.0.4" },
+        {"nick", Tunneling::keyFromBase64("5G9v6UsUOhsFTw2mV2nTSFG0144OsMfEY9Z/d+J1R1o="), "10.8.0.5" }
     };
 }
 

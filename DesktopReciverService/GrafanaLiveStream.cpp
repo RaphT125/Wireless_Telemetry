@@ -3,9 +3,10 @@
 //
 #include "GrafanaLiveStream.h"
 #include <map>
+#include <tuple>
+#include <unordered_map>
 #include <utility>
 
-    // Set up the connection once: URL, headers and timeout never change between pushes.
     GrafanaLiveStream::GrafanaLiveStream() {
         m_session.SetUrl(cpr::Url{m_url});
         m_session.SetHeader(cpr::Header{{"Authorization", "Bearer " + m_token},
@@ -13,28 +14,45 @@
         m_session.SetTimeout(cpr::Timeout{500});
     }
 
-    // One POST per packet, and one line per (device, timestamp): all signals sampled at the
-    // same moment share a line, so Grafana gets one full row instead of one row per signal.
     void GrafanaLiveStream::grafanaLiveConnection(const std::vector<PacketHandler::datapoint>& points) {
         if (points.empty()) return;
 
-        // (device, timeMs) -> "RPM=6500,ACC_PEDAL=50,..."
-        std::map<std::pair<std::string, std::uint64_t>, std::string> lines;
+        static const std::unordered_map<std::string, std::string> groupOf = [] {
+            std::unordered_map<std::string, std::string> r;
+            for (const auto& [id, def] : CANMap::table()) {
+                for (const auto& s : def.signals) {
+                    r[s.name] = def.name;
+                }
+            }
+            return r;
+        }();
+
+        std::map<std::tuple<std::string, std::string, std::uint64_t>, std::string> lines;
         for (const auto& p : points) {
-            std::string& fields = lines[{p.device, p.timeMs}];
+            auto it = groupOf.find(p.procssedData.name);
+            if (it == groupOf.end()) continue;
+            const std::string& group = it->second;
+            if (group == "GPS") {
+                std::uint64_t& last = m_lastGpsMs[p.device];
+                if (p.timeMs != last) {
+                    if (p.timeMs < last + 150) continue;
+                    last = p.timeMs;
+                }
+            }
+            std::string& fields = lines[{group, p.device, p.timeMs}];
             if (!fields.empty()) fields += ",";
             fields += std::string{p.procssedData.name} + "=" + std::to_string(p.procssedData.value);
         }
 
         std::string body;
         for (const auto& [key, fields] : lines) {
-            const auto& [device, timeMs] = key;
-            body += "car,device=" + device + " " + fields + " "
+            const auto& [group, device, timeMs] = key;
+            body += group + ",device=" + device + " " + fields + " "
                   + std::to_string(timeMs * 1000000ULL) + "\n";
         }
 
         m_session.SetBody(cpr::Body{body});
-        cpr::Response r = m_session.Post();       // reuses the same TCP connection every time
+        cpr::Response r = m_session.Post();
         if (r.error) {
             printf("[live] push failed: %s\n", r.error.message.c_str());
         } else if (r.status_code != 200) {

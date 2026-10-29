@@ -39,8 +39,8 @@ public:
     };
 
     struct datapoint {
-        std::uint64_t timeMs;      // ms since 1970 (UTC)
-        std::string device;        // sender's tunnel IP as text, e.g. "10.8.0.3"
+        std::uint64_t timeMs;
+        std::string device;        
         std::uint32_t boot_id;
         ProcessedCanData procssedData;
     };
