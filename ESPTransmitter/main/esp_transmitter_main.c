@@ -21,6 +21,7 @@
     #include "wifi_config.h"
     #include "freertos/event_groups.h"
     #include "lwip/sockets.h"
+    #include "esp_wireguard.h"
     #include "lwip/inet.h"
     #include <errno.h>
 
@@ -29,10 +30,10 @@
     #define CAN_RX_GPIO GPIO_NUM_22
     #define CAN_BITRATE 1000000
     #define MAX_FRAMES_PER_PACKET 90
-    #define RING_BUFFER_SIZE (4 * 1024 * 1024)
+    #define RING_BUFFER_SIZE (3 * 1024 * 1024)
     #define RING_BUFFER_FALLBACK_SIZE (32 * 1024)
     #define WIFI_CONNECTION BIT0
-    #define SERVER_IP "10.0.0.27"
+    #define SERVER_IP "10.8.0.1"
     #define SERVER_PORT 5005
 
 
@@ -54,6 +55,8 @@
     static esp_netif_t *wifi_netif;
     static int udp_socket = -1;
     static struct sockaddr_in server_address;
+    static wireguard_ctx_t wgCTX = {0};
+    static wireguard_config_t cfg = ESP_WIREGUARD_CONFIG_DEFAULT();
 
 
     typedef struct __attribute__((packed)) {
@@ -105,8 +108,8 @@
         ESP_ERROR_CHECK(esp_netif_init());
         ESP_ERROR_CHECK(esp_event_loop_create_default());
         wifi_netif = esp_netif_create_default_wifi_sta();
-        wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-        ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+        wifi_init_config_t wcfg = WIFI_INIT_CONFIG_DEFAULT();
+        ESP_ERROR_CHECK(esp_wifi_init(&wcfg));
         ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
 
         ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, on_wifi_event, NULL));
@@ -140,6 +143,27 @@
     static uint64_t runtime(void) {
             return (uint64_t)(esp_timer_get_time()/1000);
     }
+    static void wireguard_init() {
+
+        cfg.private_key = PRIVATE_KEY;
+        cfg.public_key = PUBLIC_KEY;
+        cfg.allowed_ip = ALLOWED_IP;
+        cfg.allowed_ip_mask = ALLOWED_IP_MASK;
+        cfg.endpoint = ENDPOINT;
+        cfg.persistent_keepalive = PERSISTENT_KEEPALIVE;
+
+        ESP_ERROR_CHECK(esp_wireguard_init(&cfg, &wgCTX));
+        ESP_ERROR_CHECK(esp_wireguard_connect(&wgCTX));
+
+        for (int i = 0; i< 60 && esp_wireguardif_peer_is_up(&wgCTX) != ESP_OK; i++) {
+            vTaskDelay(pdMS_TO_TICKS(500));
+        }
+        if (esp_wireguardif_peer_is_up(&wgCTX) == ESP_OK) {
+            ESP_LOGW(TAG, "wiregaurd tunnel is connected");
+        }else {
+            ESP_LOGW(TAG, "wiregaurd not up yet, packets are buffered");
+        }
+    }
 
     static bool frame_builder(twai_node_handle_t handle, const twai_rx_done_event_data_t *edata) {
         uint8_t rx_data[8] = {0};
@@ -169,9 +193,9 @@
     }
 
     static void init_can() {
-        twai_onchip_node_config_t cfg = {.io_cfg.tx = CAN_TX_GPIO,.io_cfg.rx = CAN_RX_GPIO,.bit_timing.bitrate = CAN_BITRATE, .tx_queue_depth = 5};
+        twai_onchip_node_config_t tcfg = {.io_cfg.tx = CAN_TX_GPIO,.io_cfg.rx = CAN_RX_GPIO,.bit_timing.bitrate = CAN_BITRATE, .tx_queue_depth = 5};
 
-        ESP_ERROR_CHECK(twai_new_node_onchip(&cfg, &can_node));
+        ESP_ERROR_CHECK(twai_new_node_onchip(&tcfg, &can_node));
 
         twai_event_callbacks_t cbs = {
             .on_rx_done = on_can_rx,
@@ -184,8 +208,8 @@
     }
 
     static void world_clock_init(void) {
-        esp_sntp_config_t cfg = ESP_NETIF_SNTP_DEFAULT_CONFIG("pool.ntp.org");
-        ESP_ERROR_CHECK(esp_netif_sntp_init(&cfg));
+        esp_sntp_config_t ecfg = ESP_NETIF_SNTP_DEFAULT_CONFIG("pool.ntp.org");
+        ESP_ERROR_CHECK(esp_netif_sntp_init(&ecfg));
 
         if (esp_netif_sntp_sync_wait(pdMS_TO_TICKS(10000)) != ESP_OK) {
             ESP_LOGW(TAG, "time not synced yet: world clock still at 1970");
@@ -225,8 +249,9 @@
             memcpy(dataPacket + sizeof(packet) + i * sizeof(body), &body, sizeof(body));
         }
         size_t packetLength = sizeof(packet) + canFrameCount * sizeof(wireFrame);
-        (void)packetLength;
-        if (udp_socket >=0 && esp_netif_is_netif_up(wifi_netif) && sendto(udp_socket, dataPacket, packetLength, 0 , (struct sockaddr  *)&server_address, sizeof(server_address)) >=0) {
+         if (udp_socket >= 0 && esp_netif_is_netif_up(wifi_netif)
+         && esp_wireguardif_peer_is_up(&wgCTX) == ESP_OK
+         && sendto(udp_socket, dataPacket, packetLength, 0, (struct sockaddr *)&server_address, sizeof(server_address)) >= 0) {
             size_t size;
             uint8_t *item = xRingbufferReceive(packetRingBuffer, &size, 0);
             if (item) {
@@ -244,41 +269,12 @@
     }
 
 
-
-    // ---- MOCK CAN (delete this block + the xTaskCreate line in app_main) ----
-    static void mock_can_task(void *arg) {
-        uint32_t tick = 0;
-        while (true) {
-            can_frame_t f = {0};
-            f.dlc = 8;
-            f.time_offset_ms = runtime();
-            if (tick % 5 == 0) {
-                uint16_t rpm = 3000 + (tick % 600) * 10;
-                f.id = 0x1;
-                f.data[0] = rpm >> 8;
-                f.data[1] = rpm & 0xFF;
-                xQueueSend(frame_queue, &f, 0);
-            }
-            int32_t lon = -1231200000 + (int32_t)(tick % 1000) * 100;
-            int32_t lat = 492600000 + (int32_t)(tick % 1000) * 100;
-            memset(f.data, 0, sizeof(f.data));
-            f.id = 0x3;
-            for (int i = 0; i < 4; i++) {
-                f.data[i] = (uint8_t)(lon >> (24 - 8 * i));
-                f.data[4 + i] = (uint8_t)(lat >> (24 - 8 * i));
-            }
-            xQueueSend(frame_queue, &f, 0);
-            tick++;
-            vTaskDelay(pdMS_TO_TICKS(10));
-        }
-    }
-    // ---- END MOCK CAN ----
-
     void app_main(void) {
         bootid = esp_random();
         init_storage();
         init_network_stack();
         world_clock_init();
+        wireguard_init();
         udp_init();
         init_headPacket();
         frame_queue = xQueueCreate(256, sizeof(can_frame_t));
@@ -289,7 +285,6 @@
         }
         ESP_LOGI(TAG, "ring buffer %s", packetRingBuffer ? "created" : "FAILED");
         init_can();
-        xTaskCreate(mock_can_task, "mock_can", 3072, NULL, 5, NULL); // MOCK CAN: delete this line
         uint64_t next_send = 0;
         ESP_LOGI(TAG, "init done, queue %s", frame_queue ? "created" : "FAILED");
         next_send = runtime()+20;
