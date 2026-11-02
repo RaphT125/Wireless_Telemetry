@@ -75,6 +75,7 @@
     static struct sockaddr_in server_address;
     static wireguard_ctx_t wgCTX = {0};
     static wireguard_config_t cfg = ESP_WIREGUARD_CONFIG_DEFAULT();
+    static uint32_t last_wifi_check_ms = 0;
 
 
     typedef struct __attribute__((packed)) {
@@ -173,8 +174,23 @@
         ESP_LOGI(TAG, "PPP status changed %d", (int) id);
     }
 
+    static void modem_power_on(void) {
+            gpio_reset_pin(MODEM_FLIGHT_GPIO);
+            gpio_set_direction(MODEM_FLIGHT_GPIO, GPIO_MODE_OUTPUT);
+            gpio_set_level(MODEM_FLIGHT_GPIO, 1);
+            gpio_reset_pin(MODEM_PWRKEY_GPIO);
+            gpio_set_direction(MODEM_PWRKEY_GPIO, GPIO_MODE_OUTPUT);
+            gpio_set_level(MODEM_PWRKEY_GPIO, 0);
+            vTaskDelay(pdMS_TO_TICKS(100));
+            gpio_set_level(MODEM_PWRKEY_GPIO, 1);
+            vTaskDelay(pdMS_TO_TICKS(1000));
+            gpio_set_level(MODEM_PWRKEY_GPIO, 0);
+            vTaskDelay(pdMS_TO_TICKS(5000));
+        }
+
     static bool init_LTE(void) {
         if (!lte_setup_done) {
+            modem_power_on();
             ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID, &on_ip_event, NULL));
             ESP_ERROR_CHECK(esp_event_handler_register(NETIF_PPP_STATUS, ESP_EVENT_ANY_ID, &on_ppp_changed, NULL));
             esp_netif_config_t netif_ppp_config = ESP_NETIF_DEFAULT_PPP();
@@ -383,13 +399,31 @@
         }
         packet.sequence++;
     }
-
+    static bool wifi_status(void) {
+        wifi_scan_config_t scan = {.ssid = (uint8_t*) WIFI_SSID, .show_hidden = false};
+        if (esp_wifi_start() != ESP_OK || esp_wifi_scan_start(&scan,true) != ESP_OK) {
+            return false;
+        }
+        uint16_t count = 1;
+        wifi_ap_record_t ap;
+        if (esp_wifi_scan_get_ap_records(&count, &ap) != ESP_OK || count == 0) {
+            return false;
+        }
+        return ap.rssi > -75;
+    }
 
     static void network_task(void *arg) {
         while (true) {
             if (uplink_netif == NULL || !esp_netif_is_netif_up(uplink_netif)) {
                 uplink_netif = NULL;
                 network_connect();
+            }
+            if (uplink_netif == lte_netif && runtime() - last_wifi_check_ms > 60000) {
+                last_wifi_check_ms = runtime();
+                if (init_WiFi()&& wifi_status()) {
+                    uplink_netif = wifi_netif;
+                    esp_netif_set_default_netif(wifi_netif);
+                }
             }
             if (uplink_netif != NULL && !time_synced) {
                 time_synced = world_clock_init();
