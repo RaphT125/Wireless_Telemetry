@@ -6,6 +6,7 @@
 #include <chrono>
 #include <cstdio>
 #include <iostream>
+#include "Logger.h"
 
 namespace {
 std::string toTimestamp(std::uint64_t ms) {
@@ -43,7 +44,8 @@ TelemtryRepsoitory::TelemtryRepsoitory() {
             m_conn.emplace("host=127.0.0.1 port=5432 dbname=telemetry user=postgres password=" + password);
             return;
         } catch (const std::exception& e) {
-            //add log message
+            Logger::get().logEvent(Logger::SevLevel::ERR,
+                "database connect attempt " + std::to_string(attempt) + "/3 failed: " + e.what());
             std::cout << "Could not connect: " << e.what() << "\n";
         }
     }
@@ -74,6 +76,8 @@ void TelemtryRepsoitory::saveDatapoint(const std::vector<PacketHandler::datapoin
     try {
         writeBatch(points);
     } catch (const std::exception& e) {
+        Logger::get().logEvent(Logger::SevLevel::ERR,
+            "database write failed, buffered " + std::to_string(points.size()) + " points: " + e.what());
         std::printf("[db] save failed, buffered %zu points: %s\n", points.size(), e.what());
         m_buffer.push(points);
         return;

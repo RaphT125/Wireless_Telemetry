@@ -3,6 +3,7 @@
 //
 
 #include "Receiver.h"
+#include "Logger.h"
 
 #include <utility>
 
@@ -51,6 +52,11 @@ void Receiver::doReceive() {
         asio::buffer(buffer_), sender_,
         [this](const asio::error_code& ec, std::size_t bytes) {
             if (ec == asio::error::operation_aborted) return;   // socket closed by stop()
+
+            if (ec) {
+                Logger::get().logEvent(Logger::SevLevel::ERR,
+                    "UDP receive error on port " + std::to_string(port_) + ": " + ec.message());
+            }
 
             if (!ec && bytes > 0 && handler_) {
                 try {

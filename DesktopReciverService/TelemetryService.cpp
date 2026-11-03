@@ -5,18 +5,16 @@
 #include "TelemetryService.h"
 #include <cstdio>
 #include <iostream>
-
+#include "Logger.h"
+#define baseIP 10.8.0.1;
 namespace {
 
 // The desktop's WireGuard key lives here (created automatically on the first run).
-const wchar_t* kKeyFile = L"C:\\ProgramData\\WirelessTelemetry\\desktop.key";
+const wchar_t* kKeyFile = L"C:\\ProgramData\\Wireless_Telemtry\\desktop.key";
 
-// Devices allowed into the tunnel. An empty list is fine for a first test: the adapter
-// still comes up with 10.8.0.1, there is just nobody who can connect yet.
-// Add each device's public key (shown in its WireGuard app) and its tunnel IP, e.g.:
-//     { "laptop", Tunneling::keyFromBase64("<laptop public key>"), "10.8.0.2" },
-//     { "esp32",  Tunneling::keyFromBase64("<esp32 public key>"),  "10.8.0.3" },
+
 std::vector<Tunneling::Peer> tunnelPeers() {
+    
 
     return {
         {"laptop", Tunneling::keyFromBase64("wcEUhJzv/PI1ffanpHcVUIRcZwM7sO5NlboOeMB/ECA="), "10.8.0.2" },
@@ -66,11 +64,17 @@ void TelemetryService::initialization(std::uint16_t port) {
     });
     receiver->start();
     started_ = true;
+    Logger::get().logEvent(Logger::SevLevel::INFO,
+        "server started: tunnel " + std::string(Tunneling::kAddress) +
+        ", listening on UDP " + std::to_string(port));
 }
 
 void TelemetryService::shutdown() {
     if (receiver) receiver->stop();
     tunnel.stop();
+    if (started_ && !stopped_) {
+        Logger::get().logEvent(Logger::SevLevel::INFO, "server stopped");
+    }
     stopped_ = true;
 }
 

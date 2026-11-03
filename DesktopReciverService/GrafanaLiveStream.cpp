@@ -2,6 +2,7 @@
 // Created by Raphael on 2026-10-24.
 //
 #include "GrafanaLiveStream.h"
+#include "Logger.h"
 #include <map>
 #include <tuple>
 #include <unordered_map>
@@ -54,8 +55,12 @@
         m_session.SetBody(cpr::Body{body});
         cpr::Response r = m_session.Post();
         if (r.error) {
+            Logger::get().logEvent(Logger::SevLevel::WARN,
+                "Grafana Live push failed: " + r.error.message);
             printf("[live] push failed: %s\n", r.error.message.c_str());
         } else if (r.status_code != 200) {
+            Logger::get().logEvent(Logger::SevLevel::WARN,
+                "Grafana Live push rejected: HTTP " + std::to_string(r.status_code) + " " + r.text);
             printf("[live] HTTP %ld: %s\n", r.status_code, r.text.c_str());
         }
     }

@@ -53,6 +53,8 @@ add_library(telemetry_core STATIC
         DesktopReciverService/TelemtryRepsoitory.h
         DesktopReciverService/GrafanaLiveStream.cpp
         DesktopReciverService/GrafanaLiveStream.h
+        DesktopReciverService/Logger.cpp
+        DesktopReciverService/Logger.h
 )
 target_include_directories(telemetry_core PUBLIC DesktopReciverService)
 target_link_libraries(telemetry_core PUBLIC asio::asio libpqxx::pqxx cpr::cpr)

@@ -4,6 +4,8 @@
 
 #include "CANDeserializer.h"
 #include <array>
+#include <cstdio>
+#include "Logger.h"
     std::vector<ProcessedCanData> CANDeserializer::deserializer(const PacketHandler::body* data) {
         std::vector<ProcessedCanData> processedCanData = {};
         uint64_t canID = checkEndian(data,4,0,data->littleEndian);
@@ -29,12 +31,19 @@
         const auto& table = CANMap::table();
         auto it = table.find(canID);
         if (it == table.end()) {
-            //include log for invalid CAN message
+            char idText[24];
+            std::snprintf(idText, sizeof(idText), "0x%llX", static_cast<unsigned long long>(canID));
+            Logger::get().logEvent(Logger::SevLevel::WARN,
+                std::string("unknown CAN id ") + idText + " (not in CANMap)");
             return {};
         }
         const CANMap::CanMessageDef& def = it->second;
         if (data->rawFrame[4] != def.messageLength) {
-            //throw log for invalid length of CAN message data
+            char idText[24];
+            std::snprintf(idText, sizeof(idText), "0x%llX", static_cast<unsigned long long>(canID));
+            Logger::get().logEvent(Logger::SevLevel::WARN,
+                std::string("CAN id ") + idText + ": length " + std::to_string(data->rawFrame[4]) +
+                ", expected " + std::to_string(def.messageLength));
             return{};
         }
         std::vector<ProcessedCanData> processedCanData = {};
