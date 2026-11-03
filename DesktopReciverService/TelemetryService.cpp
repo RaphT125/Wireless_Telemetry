@@ -5,6 +5,7 @@
 #include "TelemetryService.h"
 #include <cstdio>
 #include <iostream>
+#include "Logger.h"
 
 namespace {
 
@@ -66,11 +67,17 @@ void TelemetryService::initialization(std::uint16_t port) {
     });
     receiver->start();
     started_ = true;
+    Logger::get().logEvent(Logger::SevLevel::INFO,
+        "server started: tunnel " + std::string(Tunneling::kAddress) +
+        ", listening on UDP " + std::to_string(port));
 }
 
 void TelemetryService::shutdown() {
     if (receiver) receiver->stop();
     tunnel.stop();
+    if (started_ && !stopped_) {
+        Logger::get().logEvent(Logger::SevLevel::INFO, "server stopped");
+    }
     stopped_ = true;
 }
 

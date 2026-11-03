@@ -8,11 +8,13 @@
 #include "CANDeserializer.h"
 #include "TelemtryRepsoitory.h"
 #include "GrafanaLiveStream.h"
+#include "Logger.h"
 
 
     void PacketHandler::handlePacket(const std::uint8_t* data, std::size_t size, uint32_t ip) {
         if (size < 1) {
-            //throw log: empty packet
+            Logger::get().logEvent(Logger::SevLevel::WARN,
+                "dropped empty packet from " + asio::ip::address_v4(ip).to_string());
             return;
         }
         uint8_t header;
@@ -27,14 +29,20 @@
     void PacketHandler::dataPacketHandler(const std::uint8_t* data, std::size_t size, uint32_t ip) {
         // Header is 19 bytes: header(1) bootId(4) baseTimeMs(8) sequence(4) frameCount(1) littleEndian(1)
         if (size < 19) {
-            //throw log: packet too short to be valid
+            Logger::get().logEvent(Logger::SevLevel::WARN,
+                "dropped packet from " + asio::ip::address_v4(ip).to_string() +
+                ": " + std::to_string(size) + " bytes, shorter than the 19-byte header");
             return;
         }
         uint8_t frameCount;
         memcpy(&frameCount, data + 17, sizeof(uint8_t));
 
         if (size != 19 + 15 * static_cast<size_t>(frameCount)) {
-            //throw log: corrupted packet (size doesn't match frameCount)
+            Logger::get().logEvent(Logger::SevLevel::WARN,
+                "dropped corrupted packet from " + asio::ip::address_v4(ip).to_string() +
+                ": " + std::to_string(size) + " bytes, expected " +
+                std::to_string(19 + 15 * static_cast<size_t>(frameCount)) +
+                " for " + std::to_string(frameCount) + " frames");
             return;
         }
 
@@ -79,7 +87,9 @@
 
     void PacketHandler::handshakeHandler(const std::uint8_t* data, std::size_t size, uint32_t ip) {
         if (size != 18) {
-            //throw log: handshake must be exactly the 18-byte header
+            Logger::get().logEvent(Logger::SevLevel::WARN,
+                "dropped handshake from " + asio::ip::address_v4(ip).to_string() +
+                ": " + std::to_string(size) + " bytes, expected 18");
             return;
         }
         uint32_t bootId;

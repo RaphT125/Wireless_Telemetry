@@ -17,6 +17,7 @@
 #include <stdexcept>
 #include <system_error>
 #include <iostream>
+#include "Logger.h"
 
 
 #ifndef NT_SUCCESS
@@ -142,6 +143,11 @@ namespace {
             setConfiguration(peers);
             assignAddress();
             bringUp();
+        }catch(const std::exception& e) {
+            Logger::get().logEvent(Logger::SevLevel::ERR,
+                std::string("WireGuard tunnel failed to start: ") + e.what());
+            stop();
+            throw;
         }catch(...) {
             stop();
             throw;
