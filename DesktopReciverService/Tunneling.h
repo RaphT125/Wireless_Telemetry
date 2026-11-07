@@ -10,12 +10,13 @@
 #include <winsock2.h>
 #include <windows.h>
 #include <ws2ipdef.h>
+#include <mutex>
 #include <iphlpapi.h>   // CreateUnicastIpAddressEntry etc. Linked as "iphlpapi" in CMakeLists.txt
 
 #include <array>
 #include <vector>
 #include <string>
-
+#include "serv_config.h"
 #include "wireguard.h"
 using namespace std;
 class Tunneling {
@@ -44,6 +45,7 @@ public:
 
     static Key keyFromBase64(const string& base64);
     static string keyToBase64(const Key& key);
+    void updatePeers(const std::vector<Peer> peers);
 
 private:
     void initialization();
@@ -66,6 +68,9 @@ private:
     WIREGUARD_SET_CONFIGURATION_FUNC* setConfigurationFn_ = nullptr;
     WIREGUARD_SET_ADAPTER_STATE_FUNC* setAdapterStateFn_  = nullptr;
     WIREGUARD_SET_LOGGER_FUNC*        setLoggerFn_        = nullptr;
+
+    vector<Peer> peers_;
+    std::mutex peersMutex_;
 
 };
 
