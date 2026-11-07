@@ -17,7 +17,8 @@ Providing near-real-time telemetry data for Formula UBC SAE race car using custo
 - Process and decode binary UDP packets back into CAN frames where a custom CAN MAP decodes and converts messages back into scaled signals
 - Batching inserts into a timscaleDB hypertable in a postgreSQL database, buffering writes if database becomes unavailable 
 - Live stream data to Grafana live and allows wireguard connected users to view on their devices 
-- Rate-limited logging, recording dropped packet, databse and connection errors. 
+- Rate-limited logging, recording dropped packet, databse and connection errors.
+- Periodic pulling from google sheet/ locally cached csv for wireguard public key
 
 
 ## DataFormat From ESP32
