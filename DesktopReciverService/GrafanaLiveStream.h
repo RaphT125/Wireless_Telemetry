@@ -19,7 +19,6 @@ class GrafanaLiveStream {
         GrafanaLiveStream();
         void grafanaLiveConnection(const std::vector<PacketHandler::datapoint>& points);
     private:
-    // Grafana token: GRAFANA_TOKEN environment variable, or else the file below (outside the repo).
     std::string m_token = [] {
         std::string token;
         if (const char* t = std::getenv("GRAFANA_TOKEN")) token = t;

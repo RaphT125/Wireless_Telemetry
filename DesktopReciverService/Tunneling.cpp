@@ -19,11 +19,9 @@
 #include <iostream>
 #include "Logger.h"
 
-
 #ifndef NT_SUCCESS
 #define NT_SUCCESS(status) (((NTSTATUS)(status)) >= 0)
 #endif
-// MinGW's bcrypt.h lacks some names that Visual Studio's has; these are their official values.
 #ifndef BCRYPT_ECDH_ALGORITHM
 #define BCRYPT_ECDH_ALGORITHM L"ECDH"
 #endif
@@ -38,8 +36,6 @@
 #endif
 
 namespace {
-    // The same GUID on every start, so Windows treats it as the same network each time
-    // (its network type and firewall settings stick).
     const GUID kAdapterGuid = { 0x6f1c3b52, 0x9d4e, 0x4a7b,
                                 { 0x8e, 0x21, 0x5c, 0x0d, 0x7a, 0x93, 0x4b, 0xe6 } };
 
@@ -47,8 +43,7 @@ namespace {
         throw std::runtime_error(what + " (Windows error " + std::to_string(error) + ")");
     }
 
-    // wireguard.dll sends its own log lines here.
-    void CALLBACK logToConsole(WIREGUARD_LOGGER_LEVEL level, DWORD64 /*timestamp*/, LPCWSTR message) {
+    void CALLBACK logToConsole(WIREGUARD_LOGGER_LEVEL level, DWORD64, LPCWSTR message) {
         const wchar_t marker = level == WIREGUARD_LOG_ERR ? L'!' : level == WIREGUARD_LOG_WARN ? L'-' : L'+';
         std::fwprintf(stderr, L"[wireguard %lc] %ls\n", marker, message);
     }
@@ -60,7 +55,6 @@ namespace {
         return reinterpret_cast<Fn*>(reinterpret_cast<void*>(p));
     }
 
-    // X25519 key pair using Windows' built-in crypto
     void generateKeyPair(Tunneling::Key& publicKey, Tunneling::Key& privateKey) {
         BCRYPT_ALG_HANDLE alg = nullptr;
         BCRYPT_KEY_HANDLE key = nullptr;
@@ -91,7 +85,6 @@ namespace {
         if (!NT_SUCCESS(s)) fail("Could not generate a WireGuard key pair", static_cast<DWORD>(s));
     }
 
-    // DPAPI (machine scope): the key file is useless if copied to another PC.
     std::vector<BYTE> encrypt(const BYTE* data, DWORD size) {
         DATA_BLOB in{ size, const_cast<BYTE*>(data) }, out{};
         if (!CryptProtectData(&in, L"WirelessTelemetry WireGuard key", nullptr, nullptr, nullptr,
@@ -114,7 +107,6 @@ namespace {
         return result;
     }
 
-    // Creates the key file's folder so only SYSTEM and Administrators can read it.
     void createProtectedFolder(const std::filesystem::path& folder) {
         PSECURITY_DESCRIPTOR sd = nullptr;
         if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(
@@ -155,7 +147,7 @@ namespace {
     }
     void Tunneling::stop() {
         if (adapter_ && closeAdapterFn_) {
-            closeAdapterFn_(adapter_);   // removes the adapter and its IP from Windows
+            closeAdapterFn_(adapter_);
         }
         adapter_ = nullptr;
         if (dll_) {
@@ -187,7 +179,6 @@ namespace {
        setLoggerFn_(logToConsole);
 
     }
-
 
     void Tunneling::loadOrCreateKey(const wstring& keyFile) {
         filesystem::path path(keyFile);
@@ -225,12 +216,10 @@ namespace {
         if (!adapter_) {fail("failed to create adaptor, please run in adminsitrator");}
     }
 
-    // WireGuardNT wants one memory block laid out as:
-    // [INTERFACE][PEER][ALLOWED_IP][PEER][ALLOWED_IP]...
     void Tunneling::setConfiguration(const vector<Peer>& peers) {
         const size_t bytes = sizeof(WIREGUARD_INTERFACE) +
                              peers.size() * (sizeof(WIREGUARD_PEER) + sizeof(WIREGUARD_ALLOWED_IP));
-        std::vector<std::uint64_t> storage((bytes + 7) / 8, 0);   // zeroed, 8-byte aligned
+        std::vector<std::uint64_t> storage((bytes + 7) / 8, 0);
         BYTE* cursor = reinterpret_cast<BYTE*>(storage.data());
 
         auto* iface = reinterpret_cast<WIREGUARD_INTERFACE*>(cursor);
@@ -243,7 +232,6 @@ namespace {
 
         for (const Peer& peer : peers) {
             auto* wgPeer = reinterpret_cast<WIREGUARD_PEER*>(cursor);
-            // No endpoint and no keepalive: the desktop only listens; peers connect to it.
             wgPeer->Flags = WIREGUARD_PEER_HAS_PUBLIC_KEY | WIREGUARD_PEER_REPLACE_ALLOWED_IPS;
             std::memcpy(wgPeer->PublicKey, peer.publickey.data(), peer.publickey.size());
             wgPeer->AllowedIPsCount = 1;
@@ -251,7 +239,7 @@ namespace {
 
             auto* allowed = reinterpret_cast<WIREGUARD_ALLOWED_IP*>(cursor);
             allowed->AddressFamily = AF_INET;
-            allowed->Cidr = 32;   // exactly this one address, e.g. "10.8.0.3"
+            allowed->Cidr = 32;
             if (inet_pton(AF_INET, peer.allowedIP.c_str(), &allowed->Address.V4) != 1) {
                 throw std::invalid_argument("Bad tunnel IP for peer " + peer.name + ": " + peer.allowedIP);
             }
@@ -260,12 +248,11 @@ namespace {
 
         BOOL ok = setConfigurationFn_(adapter_, iface, static_cast<DWORD>(bytes));
         DWORD err = GetLastError();
-        SecureZeroMemory(storage.data(), storage.size() * sizeof(std::uint64_t));   // wipe the key copy
+        SecureZeroMemory(storage.data(), storage.size() * sizeof(std::uint64_t));
         if (!ok) fail("Could not configure the WireGuard adapter", err);
         peers_ = peers;
     }
 
-    // Gives the adapter 10.8.0.1/24. Windows then routes all of 10.8.0.x through the tunnel.
     void Tunneling::assignAddress() {
         MIB_UNICASTIPADDRESS_ROW row;
         InitializeUnicastIpAddressEntry(&row);
@@ -278,7 +265,6 @@ namespace {
         DWORD err = CreateUnicastIpAddressEntry(&row);
         if (err != NO_ERROR && err != ERROR_OBJECT_ALREADY_EXISTS) fail("Could not assign the tunnel IP", err);
 
-        // MTU 1420 leaves room for WireGuard's own header inside a normal 1500-byte packet.
         MIB_IPINTERFACE_ROW ipInterface;
         InitializeIpInterfaceEntry(&ipInterface);
         ipInterface.InterfaceLuid = row.InterfaceLuid;
@@ -286,13 +272,12 @@ namespace {
         err = GetIpInterfaceEntry(&ipInterface);
         if (err == NO_ERROR) {
             ipInterface.NlMtu = 1420;
-            ipInterface.SitePrefixLength = 0;   // must be 0 for IPv4 or the set call fails
+            ipInterface.SitePrefixLength = 0;
             err = SetIpInterfaceEntry(&ipInterface);
         }
         if (err != NO_ERROR) fail("Could not set the tunnel MTU", err);
     }
 
-    // Turns it on. From here it accepts handshakes on UDP 51820.
     void Tunneling::bringUp() {
         if (!setAdapterStateFn_(adapter_, WIREGUARD_ADAPTER_STATE_UP)) fail("Could not bring the tunnel up");
     }

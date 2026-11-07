@@ -19,8 +19,6 @@
 class Receiver {
 public:
 
-    // Called once per packet, on the receiver's background thread.
-    // `data` is only valid for the duration of the call - copy it if you need it later.
     using PacketHandler = std::function<void(const std::uint8_t* data,
                                              std::size_t size,
                                              const asio::ip::udp::endpoint& from)>;

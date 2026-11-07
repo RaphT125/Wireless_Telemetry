@@ -33,14 +33,14 @@ TelemtryRepsoitory::TelemtryRepsoitory() {
         std::string password;
         std::getline(std::cin, password);
         try {
-            {   // temporary connection to the built-in "postgres" database, only to create "telemetry"
+            {
                 pqxx::connection admin{"host=127.0.0.1 port=5432 dbname=postgres user=postgres password=" + password};
                 pqxx::nontransaction tx{admin};
                 pqxx::result r = tx.exec("SELECT 1 FROM pg_database WHERE datname = 'telemetry'");
                 if (r.empty()) {
                     tx.exec("CREATE DATABASE telemetry");
                 }
-            }   // closed here, before m_conn connects
+            }
             m_conn.emplace("host=127.0.0.1 port=5432 dbname=telemetry user=postgres password=" + password);
             return;
         } catch (const std::exception& e) {
@@ -98,8 +98,6 @@ void TelemtryRepsoitory::writeBatch(const std::vector<PacketHandler::datapoint>&
                                             {"time", "device", "boot_id", "signal", "value", "unit"});
     for (const auto& p: points) {
         const ProcessedCanData& pData = p.procssedData;
-        // boot_id and value are passed as text: libpqxx 8.0.2's stream_to has an over-strict
-        // assert for numbers in Debug builds. Postgres converts the text back into BIGINT / DECIMAL.
         stream.write_values(toTimestamp(p.timeMs), p.device, pqxx::to_string(p.boot_id),
                             std::string{pData.name}, pqxx::to_string(pData.value), std::string{pData.unit});
     }

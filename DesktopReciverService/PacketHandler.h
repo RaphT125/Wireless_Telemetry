@@ -56,9 +56,7 @@ public:
 
     void handlePacket(const std::uint8_t* data, std::size_t size, uint32_t ip);
 
-    // Where decoded datapoints get saved. Not owned: TelemetryService owns the repository.
     void setRepository(TelemtryRepsoitory* repository) { m_repository = repository; }
-    // Where decoded datapoints get streamed live. Not owned: TelemetryService owns it.
     void setLiveStream(GrafanaLiveStream* liveStream) { m_liveStream = liveStream; }
 
 private:

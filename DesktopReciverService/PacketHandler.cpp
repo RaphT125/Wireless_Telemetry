@@ -80,7 +80,7 @@
         }
 
         if (sequence > link.lastSequence) {
-            link.lost += sequence - link.lastSequence - 1;   // numbers skipped = lost
+            link.lost += sequence - link.lastSequence - 1;
             link.lastSequence = sequence;
         }
     }
@@ -99,7 +99,7 @@
         memcpy(&baseTimeMs, data + 5,  sizeof(uint64_t));
         memcpy(&sequence,   data + 13, sizeof(uint32_t));
 
-        // New connection (or the ESP32 rebooted): start this device's state fresh.
+
         linkState& link = m_lastSeen[ip];
         link = linkState{};
         link.haveLast     = true;
@@ -110,28 +110,27 @@
 
     void PacketHandler::deserializePacket(const std::vector<body>& data, uint32_t ip, std::uint64_t baseTimeMs) {
             std::vector<datapoint> datapoints;
-            const std::string device = asio::ip::address_v4(ip).to_string();   // e.g. "10.8.0.3"
+            const std::string device = asio::ip::address_v4(ip).to_string();
             linkState& link = m_lastSeen[ip];
             for (auto& canMessage : data) {
                std::vector<ProcessedCanData> temp = CANDeserializer::deserializer(&canMessage);
                 for (auto t : temp) {
                     datapoint point;
                     point.device = device;
-                    point.timeMs = baseTimeMs + canMessage.timeOffsetMs;   // when this frame was sampled
+                    point.timeMs = baseTimeMs + canMessage.timeOffsetMs;
                     point.boot_id = link.lastBootId;
                     point.procssedData = t;
                     datapoints.push_back(point);
                 }
             }
             if (datapoints.empty()) return;
-            if (m_liveStream != nullptr) {   // live first: the dashboard wants it fastest
+            if (m_liveStream != nullptr) {
                 m_liveStream->grafanaLiveConnection(datapoints);
             }
             if (m_repository == nullptr) return;
             try {
                 m_repository->saveDatapoint(datapoints);
             } catch (const std::exception& e) {
-                // A database problem shouldn't stop the receiver.
                 std::printf("Could not save %zu datapoints: %s\n", datapoints.size(), e.what());
             }
     }

@@ -5,13 +5,12 @@
 #ifndef WIRELESS_TELEMETRY_TUNNELING_H
 #define WIRELESS_TELEMETRY_TUNNELING_H
 
-// Order matters: winsock2.h must come before windows.h (wireguard.h also includes both).
 #include <array>
 #include <winsock2.h>
 #include <windows.h>
 #include <ws2ipdef.h>
 #include <mutex>
-#include <iphlpapi.h>   // CreateUnicastIpAddressEntry etc. Linked as "iphlpapi" in CMakeLists.txt
+#include <iphlpapi.h>
 
 #include <array>
 #include <vector>
@@ -31,7 +30,6 @@ public:
     static constexpr WORD kPort = 51820;
     static constexpr const char* kAddress = "10.8.0.1";
     static constexpr BYTE  kPrefixLength= 24;
-
 
     Tunneling() = default;
     ~Tunneling();
@@ -73,6 +71,5 @@ private:
     std::mutex peersMutex_;
 
 };
-
 
 #endif //WIRELESS_TELEMETRY_TUNNELING_H
