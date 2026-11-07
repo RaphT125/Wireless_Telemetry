@@ -14,11 +14,12 @@
     void WireguardTableReader::refreshLoop(Tunneling& tunnel) {
         while (true) {
             std::unique_lock<std::mutex> lock(waitMutex_);
-            wake_.wait_for(lock,std::chrono::hours(1), [this]{
+            wake_.wait_for(lock,std::chrono::minutes(REFRESHPERIOD), [this]{
                 return !running_;});
             if (!running_) return;
             lock.unlock();
             std::vector<Tunneling::Peer> peers = checkGSheet();
+            Logger::get().logEvent(Logger::SevLevel::DEBUG,"update to peering peer");
             if (peers.empty())continue;
             try {
                 tunnel.updatePeers(peers);
