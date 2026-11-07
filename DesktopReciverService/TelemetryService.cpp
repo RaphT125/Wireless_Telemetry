@@ -6,18 +6,8 @@
 #include <cstdio>
 #include <iostream>
 #include "Logger.h"
-#define baseIP 10.8.0.1;
 namespace {
-
-// The desktop's WireGuard key lives here (created automatically on the first run).
 const wchar_t* kKeyFile = L"C:\\ProgramData\\Wireless_Telemtry\\desktop.key";
-
-
-std::vector<Tunneling::Peer> tunnelPeers() {
-
-}
-
-
 } // namespace
 
 TelemetryService* TelemetryService::instance = nullptr;
@@ -32,25 +22,22 @@ void TelemetryService::initialization(std::uint16_t port) {
     instance = this;
     SetConsoleCtrlHandler(onclose, TRUE);
 
-    // 1. Tunnel first, so 10.8.0.1 exists before anything listens on it.
-    tunnel.start(kKeyFile, tunnelPeers());
+    tunnel.start(kKeyFile, wireguardTableReader.loadPeers());
+    peerRefreshThread = std::thread(&WireguardTableReader::refreshLoop, &wireguardTableReader, std::ref(tunnel));
     std::printf("WireGuard tunnel up: %s/%u, UDP port %u\n", Tunneling::kAddress,
                 static_cast<unsigned>(Tunneling::kPrefixLength), static_cast<unsigned>(Tunneling::kPort));
     std::printf("Desktop public key (give this to the laptop and ESP32): %s\n",
                 tunnel.publicKeyBase64().c_str());
 
-    //2. connect to locally hosted postgress database
     telemtryRepsoitory = std::make_unique<TelemtryRepsoitory>();
     telemtryRepsoitory->initializeSchema();
-    packetHandler.setRepository(telemtryRepsoitory.get());   // PacketHandler uses it, TelemetryService owns it
+    packetHandler.setRepository(telemtryRepsoitory.get());
 
-    //3. live stream to Grafana
     grafanaLiveStream = std::make_unique<GrafanaLiveStream>();
     packetHandler.setLiveStream(grafanaLiveStream.get());
 
     receiver = std::make_unique<Receiver>(port, [this](const std::uint8_t* data, std::size_t size,
                                                        const asio::ip::udp::endpoint& from) {
-        // Sender's tunnel IP as a number (e.g. 10.8.0.3), used to keep per-device state.
         std::uint32_t ip = from.address().is_v4() ? from.address().to_v4().to_uint() : 0;
         packetHandler.handlePacket(data, size, ip);
     });
@@ -62,6 +49,8 @@ void TelemetryService::initialization(std::uint16_t port) {
 }
 
 void TelemetryService::shutdown() {
+    wireguardTableReader.stop();
+    if (peerRefreshThread.joinable()) peerRefreshThread.join();
     if (receiver) receiver->stop();
     tunnel.stop();
     if (started_ && !stopped_) {

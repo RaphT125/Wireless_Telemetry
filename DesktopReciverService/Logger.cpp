@@ -4,6 +4,7 @@
 
 #include "Logger.h"
 
+
     Logger::Logger() {
             _mkdir(LOGGER_DIR);
     }
@@ -15,28 +16,32 @@
 
     void Logger::logEvent(SevLevel sevLevel, std::string message) {
         m_mutex.lock();
-        if (g_log == nullptr) {
-            g_log = _fsopen(LOGGER_PATH, "a", _SH_DENYWR);
-            if (g_log == nullptr) {
-                m_mutex.unlock();
-                return;
-            }
-        }
-        time_t now = time(nullptr);
+       if (sevLevel == SevLevel::DEBUG && DEBUGMODE != 1) {
+           m_mutex.unlock();
+           return;
+       }
+           if (g_log == nullptr) {
+               g_log = _fsopen(LOGGER_PATH, "a", _SH_DENYWR);
+               if (g_log == nullptr) {
+                   m_mutex.unlock();
+                   return;
+               }
+           }
+           time_t now = time(nullptr);
 
-        struct tm t;
-        localtime_s(&t, &now);
-        auto lastTime = lastSent.find(message);
+           struct tm t;
+           localtime_s(&t, &now);
+           auto lastTime = lastSent.find(message);
 
-        if (lastTime == lastSent.end() || difftime(now, lastTime->second) > 5.0 ) {
-            char timeBuf[32];
-            strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%d %H:%M:%S", &t);
+           if (lastTime == lastSent.end() || difftime(now, lastTime->second) > 5.0 ) {
+               char timeBuf[32];
+               strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%d %H:%M:%S", &t);
 
-            std::string msg = std::string(timeBuf) + " " + toString(sevLevel) + ": " + message;
-            fprintf(g_log, "%s\n", msg.c_str());
-            fflush(g_log);
-            lastSent[message] = now;
-        }
+               std::string msg = std::string(timeBuf) + " " + toString(sevLevel) + ": " + message;
+               fprintf(g_log, "%s\n", msg.c_str());
+               fflush(g_log);
+               lastSent[message] = now;
+           }
         m_mutex.unlock();
     }
 

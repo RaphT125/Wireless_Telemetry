@@ -10,6 +10,7 @@
 #include <string>
 #include <unordered_map>
 #include <mutex>
+#include "serv_config.h"
 
 #ifndef WIRELESS_TELEMETRY_LOGGER_H
 #define WIRELESS_TELEMETRY_LOGGER_H

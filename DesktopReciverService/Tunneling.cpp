@@ -140,7 +140,7 @@ namespace {
             initialization();
             loadOrCreateKey(keyFile);
             createAdaptor();
-            setConfiguration(peers);
+            setConfiguration(allPeers);
             assignAddress();
             bringUp();
         }catch(const std::exception& e) {
@@ -262,6 +262,7 @@ namespace {
         DWORD err = GetLastError();
         SecureZeroMemory(storage.data(), storage.size() * sizeof(std::uint64_t));   // wipe the key copy
         if (!ok) fail("Could not configure the WireGuard adapter", err);
+        peers_ = peers;
     }
 
     // Gives the adapter 10.8.0.1/24. Windows then routes all of 10.8.0.x through the tunnel.
@@ -317,12 +318,12 @@ namespace {
     }
 
     vector<Tunneling::Peer> Tunneling::listOfPeers(const vector<Peer>& existing) {
-        vector<Peer> peers = existing;
+    vector<Peer> peers = existing;
+    if (DEBUGMODE == 1) {
         while (true) {
             std::cout << "Would you like to add another user? (Y/N): ";
             std::string response;
             if (!std::getline(std::cin, response)) return peers;
-
             if (response == "Y" || response == "y") {
                 peers.push_back(askForPeer(peers.size()));
             } else if (response == "N" || response == "n") {
@@ -331,6 +332,8 @@ namespace {
                 std::cout << "Please enter Y or N.\n";
             }
         }
+    }
+    return peers;
     }
     Tunneling::Peer Tunneling::askForPeer(int nUser) {
         Peer peer;
@@ -342,13 +345,14 @@ namespace {
         }
         if (peer.name.empty()) {
             cout<<"Please enter a valid name";
+        }else {
+            break;
         }
-        break;
     }
         while (true ) {
             std::string key;
             std::cout<< "Please enter your device's public key: ";
-            if (getline(cin,key)) {
+            if (!getline(cin,key)) {
                 throw::std::runtime_error("No input available");
             }
             try {
@@ -358,7 +362,66 @@ namespace {
                 std::cout << "not a valid key please try again";
             }
         }
-        peer.allowedIP = "10.8.0."+ (2 + nUser);
+        peer.allowedIP = "10.8.0."+ std::to_string(2 + nUser);
        return peer;
+    }
+    void Tunneling::updatePeers(std::vector<Peer> peers) {
+         peersMutex_.lock();
+        if (!adapter_) {
+            peersMutex_.unlock();
+            return;
+        }
+        try {
+            vector<const Peer*> removed;
+            for (const Peer& old : peers_) {
+                bool stillThere = false;
+                for (const Peer& p : peers) {
+                    if (p.publickey == old.publickey) { stillThere = true; break; }
+                }
+                if (!stillThere) removed.push_back(&old);
+            }
+
+            const size_t bytes = sizeof(WIREGUARD_INTERFACE) +
+                                 peers.size() * (sizeof(WIREGUARD_PEER) + sizeof(WIREGUARD_ALLOWED_IP)) +
+                                 removed.size() * sizeof(WIREGUARD_PEER);
+            std::vector<std::uint64_t> storage((bytes + 7) / 8, 0);
+            BYTE* cursor = reinterpret_cast<BYTE*>(storage.data());
+
+            auto* iface = reinterpret_cast<WIREGUARD_INTERFACE*>(cursor);
+            iface->PeersCount = static_cast<DWORD>(peers.size() + removed.size());
+            cursor += sizeof(WIREGUARD_INTERFACE);
+
+            for (const Peer& peer : peers) {
+                auto* wgPeer = reinterpret_cast<WIREGUARD_PEER*>(cursor);
+                wgPeer->Flags = WIREGUARD_PEER_HAS_PUBLIC_KEY | WIREGUARD_PEER_REPLACE_ALLOWED_IPS;
+                std::memcpy(wgPeer->PublicKey, peer.publickey.data(), peer.publickey.size());
+                wgPeer->AllowedIPsCount = 1;
+                cursor += sizeof(WIREGUARD_PEER);
+
+                auto* allowed = reinterpret_cast<WIREGUARD_ALLOWED_IP*>(cursor);
+                allowed->AddressFamily = AF_INET;
+                allowed->Cidr = 32;
+                if (inet_pton(AF_INET, peer.allowedIP.c_str(), &allowed->Address.V4) != 1) {
+                    throw std::invalid_argument("Bad tunnel IP for peer " + peer.name + ": " + peer.allowedIP);
+                }
+                cursor += sizeof(WIREGUARD_ALLOWED_IP);
+            }
+
+            for (const Peer* old : removed) {
+                auto* wgPeer = reinterpret_cast<WIREGUARD_PEER*>(cursor);
+                wgPeer->Flags = WIREGUARD_PEER_HAS_PUBLIC_KEY | WIREGUARD_PEER_REMOVE;
+                std::memcpy(wgPeer->PublicKey, old->publickey.data(), old->publickey.size());
+                cursor += sizeof(WIREGUARD_PEER);
+            }
+
+            if (!setConfigurationFn_(adapter_, iface, static_cast<DWORD>(bytes))) {
+                fail("Could not update WireGuard peers");
+            }
+            peers_ = peers;
+        } catch (...) {
+            peersMutex_.unlock();
+            throw;
+        }
+        peersMutex_.unlock();
     }
 
