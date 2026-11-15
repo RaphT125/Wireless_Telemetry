@@ -7,8 +7,8 @@
 #include <vector>
 #include <cpr/cpr.h>
 #include "Tunneling.h"
-#include "serv_config.h"
-#include "Logger.h"
+#include "../../Utils/serv_config.h"
+#include "../../Utils/Logger.h"
 #include <stdio.h>
 #include <condition_variable>
 #include <sstream>

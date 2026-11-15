@@ -2,9 +2,9 @@
 // Created by Raphael on 2026-11-06.
 //
 
-#include "WireguardTableReader.h"
+#include "Header/WireguardTableReader.h"
 
-    void WireguardTableReader::stop() {
+void WireguardTableReader::stop() {
         waitMutex_.lock();
         running_ = false;
         waitMutex_.unlock();

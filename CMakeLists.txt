@@ -39,25 +39,25 @@ endif()
 
 # Core logic: UDP receiver + service wrapper.
 add_library(telemetry_core STATIC
-    DesktopReciverService/Receiver.cpp
+        DesktopReciverService/Network/Receiver.cpp
     DesktopReciverService/TelemetryService.cpp
-        DesktopReciverService/PacketHandler.cpp
-        DesktopReciverService/PacketHandler.h
-        DesktopReciverService/CANDeserializer.cpp
-        DesktopReciverService/CANDeserializer.h
-        DesktopReciverService/ProcessedCanData.h
-        DesktopReciverService/CANMap.h
-        DesktopReciverService/Tunneling.cpp
-        DesktopReciverService/Tunneling.h
-        DesktopReciverService/TelemtryRepsoitory.cpp
-        DesktopReciverService/TelemtryRepsoitory.h
-        DesktopReciverService/GrafanaLiveStream.cpp
-        DesktopReciverService/GrafanaLiveStream.h
-        DesktopReciverService/Logger.cpp
-        DesktopReciverService/Logger.h
-        DesktopReciverService/serv_config.h
-        DesktopReciverService/WireguardTableReader.cpp
-        DesktopReciverService/WireguardTableReader.h
+        DesktopReciverService/DataHandler/PacketHandler.cpp
+        DesktopReciverService/DataHandler/Header/PacketHandler.h
+        DesktopReciverService/DataHandler/CANDeserializer.cpp
+        DesktopReciverService/DataHandler/Header/CANDeserializer.h
+        DesktopReciverService/DataHandler/Header/ProcessedCanData.h
+        DesktopReciverService/DataHandler/Header/CANMap.h
+        DesktopReciverService/Network/Tunneling.cpp
+        DesktopReciverService/Network/Header/Tunneling.h
+        DesktopReciverService/PostProcessedData/TelemtryRepsoitory.cpp
+        DesktopReciverService/PostProcessedData/Header/TelemtryRepsoitory.h
+        DesktopReciverService/PostProcessedData/GrafanaLiveStream.cpp
+        DesktopReciverService/PostProcessedData/Header/GrafanaLiveStream.h
+        DesktopReciverService/Utils/Logger.cpp
+        DesktopReciverService/Utils/Logger.h
+        DesktopReciverService/Utils/serv_config.h
+        DesktopReciverService/Network/WireguardTableReader.cpp
+        DesktopReciverService/Network/Header/WireguardTableReader.h
 )
 target_include_directories(telemetry_core PUBLIC DesktopReciverService)
 target_link_libraries(telemetry_core PUBLIC asio::asio libpqxx::pqxx cpr::cpr)
@@ -82,7 +82,7 @@ endif()
 
 find_package(Boost REQUIRED COMPONENTS unit_test_framework)
 
-add_executable(telemetry_tests tests/test_main.cpp)
+add_executable(telemetry_tests Intergration&E2E_Test/test_main.cpp)
 target_link_libraries(telemetry_tests PRIVATE telemetry_core Boost::headers)
 
 enable_testing()

@@ -15,7 +15,7 @@
 #include <array>
 #include <vector>
 #include <string>
-#include "serv_config.h"
+#include "../../Utils/serv_config.h"
 #include "wireguard.h"
 using namespace std;
 class Tunneling {

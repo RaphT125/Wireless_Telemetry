@@ -5,21 +5,21 @@
 #ifndef WIRELESS_TELEMETRY_TELEMETRYSERVICE_H
 #define WIRELESS_TELEMETRY_TELEMETRYSERVICE_H
 
-#include "Receiver.h"
-#include "Tunneling.h"
-#include "PacketHandler.h"
-#include "CANDeserializer.h"
-#include "TelemtryRepsoitory.h"
-#include "GrafanaLiveStream.h"
+#include "Network/Header/Receiver.h"
+#include "Network/Header/Tunneling.h"
+#include "DataHandler/Header/PacketHandler.h"
+#include "DataHandler/Header/CANDeserializer.h"
+#include "PostProcessedData/Header/TelemtryRepsoitory.h"
+#include "PostProcessedData/Header/GrafanaLiveStream.h"
 #include <windows.h>
 #include <atomic>
 #include <cstdint>
 #include <memory>
 #include <vector>
-#include "serv_config.h"
-#include "WireguardTableReader.h"
+#include "Utils/serv_config.h"
+#include "Network/Header/WireguardTableReader.h"
 #include <thread>
-#include "serv_config.h"
+#include "Utils/serv_config.h"
 
 
 class TelemetryService {

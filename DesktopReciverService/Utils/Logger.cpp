@@ -5,7 +5,7 @@
 #include "Logger.h"
 
 
-    Logger::Logger() {
+Logger::Logger() {
             _mkdir(LOGGER_DIR);
     }
 

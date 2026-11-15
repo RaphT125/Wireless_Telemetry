@@ -1,8 +1,8 @@
 //
 // Created by Raphael on 2026-10-24.
 //
-#include "GrafanaLiveStream.h"
-#include "Logger.h"
+#include "Header/GrafanaLiveStream.h"
+#include "../Utils/Logger.h"
 #include <map>
 #include <tuple>
 #include <unordered_map>

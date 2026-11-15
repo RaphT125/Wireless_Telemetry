@@ -6,13 +6,13 @@
 #define WIRELESS_TELEMETRY_GRAFANALIVESTREAM_H
 
 #include <cpr/cpr.h>
-#include <TelemtryRepsoitory.h>
-#include "PacketHandler.h"
+#include "TelemtryRepsoitory.h"
+#include "../../DataHandler/Header/PacketHandler.h"
 #include <cstdlib>
 #include <cstdio>
 #include <cctype>
 #include <fstream>
-#include "CANMap.h"
+#include "../../DataHandler/Header/CANMap.h"
 class GrafanaLiveStream {
 
     public:

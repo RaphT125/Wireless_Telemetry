@@ -2,7 +2,7 @@
 // Created by Raphael on 2026-10-20.
 //
 
-#include "Tunneling.h"
+#include "Header/Tunneling.h"
 #include <bcrypt.h>
 #include <wincrypt.h>
 #include <sddl.h>
@@ -17,7 +17,7 @@
 #include <stdexcept>
 #include <system_error>
 #include <iostream>
-#include "Logger.h"
+#include "../Utils/Logger.h"
 
 #ifndef NT_SUCCESS
 #define NT_SUCCESS(status) (((NTSTATUS)(status)) >= 0)

@@ -5,7 +5,7 @@
 #include "TelemetryService.h"
 #include <cstdio>
 #include <iostream>
-#include "Logger.h"
+#include "Utils/Logger.h"
 namespace {
 const wchar_t* kKeyFile = L"C:\\ProgramData\\Wireless_Telemtry\\desktop.key";
 } // namespace

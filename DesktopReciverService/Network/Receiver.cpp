@@ -2,8 +2,8 @@
 // Created by Raphael on 2026-10-19.
 //
 
-#include "Receiver.h"
-#include "Logger.h"
+#include "Header/Receiver.h"
+#include "../Utils/Logger.h"
 
 #include <utility>
 
