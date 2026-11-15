@@ -4,6 +4,7 @@
   "dependencies": [
     "asio",
     "libpqxx",
-    "cpr"
+    "cpr",
+    "boost-test"
   ]
 }

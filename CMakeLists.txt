@@ -79,3 +79,11 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp")
         target_link_options(telemetry_service PRIVATE -static)
     endif()
 endif()
+
+find_package(Boost REQUIRED COMPONENTS unit_test_framework)
+
+add_executable(telemetry_tests tests/test_main.cpp)
+target_link_libraries(telemetry_tests PRIVATE telemetry_core Boost::headers)
+
+enable_testing()
+add_test(NAME telemetry_tests COMMAND telemetry_tests)

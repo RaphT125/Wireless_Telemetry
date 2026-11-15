@@ -45,6 +45,7 @@
     #define MODEM_PWRKEY_GPIO GPIO_NUM_4
     #define MODEM_FLIGHT_GPIO GPIO_NUM_25
     #define MODEM_STATUS_GPIO GPIO_NUM_34
+    #define MOCK_CAN
 
 
     typedef struct {
@@ -175,9 +176,12 @@
     }
 
     static void modem_power_on(void) {
-            gpio_reset_pin(MODEM_FLIGHT_GPIO);
-            gpio_set_direction(MODEM_FLIGHT_GPIO, GPIO_MODE_OUTPUT);
-            gpio_set_level(MODEM_FLIGHT_GPIO, 1);
+        gpio_reset_pin(MODEM_FLIGHT_GPIO);
+        gpio_set_direction(MODEM_FLIGHT_GPIO, GPIO_MODE_OUTPUT);
+        gpio_set_level(MODEM_FLIGHT_GPIO, 1);
+        gpio_reset_pin(MODEM_PWRKEY_GPIO);
+        gpio_set_direction(MODEM_STATUS_GPIO, GPIO_MODE_INPUT);
+        if (gpio_get_level(MODEM_STATUS_GPIO) == 0) {
             gpio_reset_pin(MODEM_PWRKEY_GPIO);
             gpio_set_direction(MODEM_PWRKEY_GPIO, GPIO_MODE_OUTPUT);
             gpio_set_level(MODEM_PWRKEY_GPIO, 0);
@@ -187,6 +191,8 @@
             gpio_set_level(MODEM_PWRKEY_GPIO, 0);
             vTaskDelay(pdMS_TO_TICKS(5000));
         }
+
+    }
 
     static bool init_LTE(void) {
         if (!lte_setup_done) {
@@ -208,6 +214,23 @@
                 return false;
             }
             lte_setup_done = true;
+        }
+        esp_modem_set_mode(dce, ESP_MODEM_MODE_COMMAND);
+        int tries = 0;
+        while (esp_modem_sync(dce) != ESP_OK) {
+            if (++tries >= 10) {
+                ESP_LOGE(TAG, "sync failed");
+                return false;
+            }
+            vTaskDelay(pdMS_TO_TICKS(1000));
+        }
+        bool pin_ok = false;
+        if (esp_modem_read_pin(dce, &pin_ok) == ESP_OK && !pin_ok) {
+            if (esp_modem_set_pin(dce, LTE_PIN) != ESP_OK) {
+                ESP_LOGW(TAG, "SIM pin rejected");
+                return false;
+            }
+            vTaskDelay(pdMS_TO_TICKS(1000));
         }
 
         if (esp_modem_set_mode(dce, ESP_MODEM_MODE_DATA) != ESP_OK) {
@@ -313,6 +336,18 @@
         return frame_builder(handle, edata);
 
     }
+
+    #ifdef MOCK_CAN
+    static void mock_can_task(void *arg) {
+        uint8_t n = 0;
+        while (true) {
+            can_frame_t f = { .id = 0x1, .dlc = 8, .time_offset_ms = runtime() };
+            memset(f.data, n++, sizeof(f.data));
+            xQueueSend(frame_queue, &f, 0);
+            vTaskDelay(pdMS_TO_TICKS(20));
+        }
+    }
+    #endif
 
     static void init_can() {
         twai_onchip_node_config_t tcfg = {.io_cfg.tx = CAN_TX_GPIO,.io_cfg.rx = CAN_RX_GPIO,.bit_timing.bitrate = CAN_BITRATE, .tx_queue_depth = 5};
@@ -420,7 +455,7 @@
             }
             if (uplink_netif == lte_netif && runtime() - last_wifi_check_ms > 60000) {
                 last_wifi_check_ms = runtime();
-                if (init_WiFi()&& wifi_status()) {
+                if (wifi_status() && init_WiFi()) {
                     uplink_netif = wifi_netif;
                     esp_netif_set_default_netif(wifi_netif);
                 }
@@ -451,6 +486,9 @@
         udp_init();
         init_can();
         xTaskCreate(network_task, "network", 6144, NULL, tskIDLE_PRIORITY + 1, NULL);
+    #ifdef MOCK_CAN
+        xTaskCreate(mock_can_task, "mock_can", 3072, NULL, tskIDLE_PRIORITY + 1, NULL);
+    #endif
         uint64_t next_send = 0;
         ESP_LOGI(TAG, "init done, queue %s", frame_queue ? "created" : "FAILED");
         next_send = runtime()+20;

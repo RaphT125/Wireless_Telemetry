@@ -33,7 +33,6 @@ void Receiver::start() {
 void Receiver::stop() {
     if (!running_.exchange(false)) return;
 
-    /
     asio::post(io_, [this] {
         asio::error_code ec;
         socket_.close(ec);
