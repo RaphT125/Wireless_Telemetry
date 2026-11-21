@@ -6,6 +6,7 @@
 #include <array>
 #include <cstdio>
 #include "../Utils/Logger.h"
+
 std::vector<ProcessedCanData> CANDeserializer::deserializer(const PacketHandler::body* data) {
         std::vector<ProcessedCanData> processedCanData = {};
         uint64_t canID = checkEndian(data,4,0,data->littleEndian);
@@ -27,6 +28,7 @@ std::vector<ProcessedCanData> CANDeserializer::deserializer(const PacketHandler:
         }
         return byteData;
     }
+
      std::vector<ProcessedCanData> CANDeserializer::deserializeProcessedCanData(const PacketHandler::body* data, uint64_t canID) {
         const auto& table = CANMap::table();
         auto it = table.find(canID);
@@ -50,8 +52,11 @@ std::vector<ProcessedCanData> CANDeserializer::deserializer(const PacketHandler:
         for (const CANMap::signal& entry : def.signals) {
             ProcessedCanData CANMessage;
             std::uint64_t raw = checkEndian(data, entry.byteLength, 5 + entry.offset, def.littleEndian);
+            if (entry.bitLength > 0) {
+                raw = (raw >> entry.bitStart) & ((1ULL << entry.bitLength) - 1);
+            }
             std::int64_t value = static_cast<std::int64_t>(raw);
-            int bits = entry.byteLength * 8;
+            int bits = entry.bitLength > 0 ? entry.bitLength : entry.byteLength * 8;
             if (entry.isSigned && bits < 64 && (raw & (1ULL << (bits - 1)))) {
                 value -= (1LL << bits);   // e.g. 0xFFF4 -> -12
             }

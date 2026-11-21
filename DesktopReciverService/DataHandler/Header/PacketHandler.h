@@ -15,8 +15,8 @@
 
 #include "ProcessedCanData.h"
 
-class TelemtryRepsoitory;   // forward declaration: avoids an include loop (the repository includes this header)
-class GrafanaLiveStream;    // same reason
+class TelemtryRepsoitory;
+class GrafanaLiveStream;
 
 class PacketHandler {
 public:

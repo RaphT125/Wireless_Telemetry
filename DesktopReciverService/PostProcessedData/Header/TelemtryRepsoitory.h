@@ -22,7 +22,7 @@ public:
     void updateLinkStatus(std::uint32_t ip, const PacketHandler::linkState& link);
 private:
     std::optional<pqxx::connection> m_conn;
-    std::stack<std::vector<PacketHandler::datapoint>> m_buffer;   // batches that failed to save
+    std::stack<std::vector<PacketHandler::datapoint>> m_buffer;
     void writeBatch(const std::vector<PacketHandler::datapoint>& points);
 };
 

@@ -233,6 +233,16 @@
             vTaskDelay(pdMS_TO_TICKS(1000));
         }
 
+        int rssi = 0, ber = 0;
+        esp_modem_get_signal_quality(dce, &rssi, &ber);
+        ESP_LOGI(TAG, "signal rssi %d ber %d", rssi, ber);
+        char reply[128] = {0};
+        esp_modem_at(dce, "AT+CPIN?", reply, 1000);
+        ESP_LOGI(TAG, "CPIN: %s", reply);
+        esp_modem_at(dce, "AT+CEREG?", reply, 1000);
+        ESP_LOGI(TAG, "CEREG: %s", reply);
+        esp_modem_at(dce, "AT+COPS?", reply, 1000);
+        ESP_LOGI(TAG, "COPS: %s", reply);
         if (esp_modem_set_mode(dce, ESP_MODEM_MODE_DATA) != ESP_OK) {
             ESP_LOGW(TAG, "modem did not enter data mode");
             return false;

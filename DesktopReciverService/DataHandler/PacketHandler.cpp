@@ -27,7 +27,6 @@ void PacketHandler::handlePacket(const std::uint8_t* data, std::size_t size, uin
     }
 
     void PacketHandler::dataPacketHandler(const std::uint8_t* data, std::size_t size, uint32_t ip) {
-        // Header is 19 bytes: header(1) bootId(4) baseTimeMs(8) sequence(4) frameCount(1) littleEndian(1)
         if (size < 19) {
             Logger::get().logEvent(Logger::SevLevel::WARN,
                 "dropped packet from " + asio::ip::address_v4(ip).to_string() +
@@ -106,6 +105,7 @@ void PacketHandler::handlePacket(const std::uint8_t* data, std::size_t size, uin
         link.lastBootId   = bootId;
         link.lastSequence = sequence;
         link.baseTimeMs   = baseTimeMs;
+        Logger::get().logEvent(Logger::SevLevel::INFO, "received handshake from " + asio::ip::address_v4(ip).to_string());
     }
 
     void PacketHandler::deserializePacket(const std::vector<body>& data, uint32_t ip, std::uint64_t baseTimeMs) {
