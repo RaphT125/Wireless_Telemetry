@@ -48,6 +48,9 @@ std::vector<ProcessedCanData> CANDeserializer::deserializer(const PacketHandler:
                 ", expected " + std::to_string(def.messageLength));
             return{};
         }
+        if (canID == 0x1) {
+            std::printf("0x1 raw: %02X %02X %02X %02X %02X %02X %02X %02X\n", data->rawFrame[5], data->rawFrame[6], data->rawFrame[7], data->rawFrame[8], data->rawFrame[9], data->rawFrame[10], data->rawFrame[11], data->rawFrame[12]);
+        }
         std::vector<ProcessedCanData> processedCanData = {};
         for (const CANMap::signal& entry : def.signals) {
             ProcessedCanData CANMessage;

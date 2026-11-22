@@ -45,6 +45,8 @@ void PacketHandler::handlePacket(const std::uint8_t* data, std::size_t size, uin
             return;
         }
 
+        Logger::get().logEvent(Logger::SevLevel::INFO, "received packet from " + asio::ip::address_v4(ip).to_string());
+
         uint32_t bootId;
         uint64_t baseTimeMs;
         uint32_t sequence;

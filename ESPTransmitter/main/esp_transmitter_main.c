@@ -45,7 +45,6 @@
     #define MODEM_PWRKEY_GPIO GPIO_NUM_4
     #define MODEM_FLIGHT_GPIO GPIO_NUM_25
     #define MODEM_STATUS_GPIO GPIO_NUM_34
-    #define MOCK_CAN
 
 
     typedef struct {
